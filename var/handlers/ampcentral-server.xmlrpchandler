@@ -1,0 +1,122 @@
+<?php
+/*
+ *   AmpCentral Server
+ *
+ *   Copyright (C) 2000-2004 Solarix
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+if (!defined('AMPCENTRAL-SERVER_XMLRPCHANDLER')) {
+	define ('AMPCENTRAL-SERVER_XMLRPCHANDLER', true);
+
+	function ampcentral_server_list_available_repositories() {
+		global $gEnv;
+
+		$reps = array();
+
+		$rep_query = & $gEnv['root']['db'] -> Execute('SELECT ampcentralreps.id AS id, ampcentralreps.name AS name, ampcentralreps.description AS description '.'FROM ampcentralrepaccess,ampcentralreps '.'WHERE ampcentralrepaccess.profileid='.$gEnv['remote']['profile'].' '.'AND ampcentralrepaccess.repositoryid=ampcentralreps.id '.'ORDER BY name');
+
+		while (!$rep_query -> eof) {
+			$reps[$rep_query -> Fields('id')] = array('name' => $rep_query -> Fields('name'), 'description' => $rep_query -> Fields('description'));
+
+			$rep_query -> MoveNext();
+		}
+
+		return new XmlRpcResp(xmlrpc_encode($reps));
+	}
+
+	function ampcentral_server_list_available_modules($m) {
+		OpenLibrary('ampcentral-server.library');
+		global $gEnv;
+
+		$rep_id = $m -> GetParam(0);
+		$rep = new AmpCentralRepository($gEnv['root']['db'], $rep_id -> ScalarVal(), $gEnv['remote']['profile'], $gEnv['remote']['user']);
+		$avail_modules = $rep -> AvailableModulesList();
+
+		$modules = array();
+		while (list (, $id) = each($avail_modules)) {
+			$mod_query = & $gEnv['root']['db'] -> Execute('SELECT ampcentralmodules.modid AS modid,'.'ampcentralmodules.description AS description,'.'ampcentralmodules.lastversion AS lastversion,'.'ampcentralmodules.category AS category,'.'ampcentralmodversions.dependencies AS dependencies,'.'ampcentralmodversions.suggestions AS suggestions,'.'ampcentralmodversions.date AS date '.'FROM ampcentralmodules,ampcentralmodversions '.'WHERE ampcentralmodules.id='.$id.' '.'AND ampcentralmodversions.moduleid=ampcentralmodules.id '.'AND ampcentralmodversions.version=ampcentralmodules.lastversion');
+
+			$modules[$id]['modid'] = $mod_query -> Fields('modid');
+			$modules[$id]['description'] = $mod_query -> Fields('description');
+			$modules[$id]['lastversion'] = $mod_query -> Fields('lastversion');
+			$modules[$id]['category'] = $mod_query -> Fields('category');
+			$modules[$id]['date'] = $mod_query -> Fields('date');
+			$modules[$id]['dependencies'] = $mod_query -> Fields('dependencies');
+			$modules[$id]['suggestions'] = $mod_query -> Fields('suggestions');
+		}
+
+		function ampcentral_server_list_available_modules_cmp($a, $b) {
+			if ($a['modid'] == $b['modid'])
+				return 0;
+			return ($a['modid'] < $b['modid']) ? -1 : 1;
+		}
+
+		uasort($modules, 'ampcentral_server_list_available_modules_cmp');
+
+		return new XmlRpcResp(xmlrpc_encode($modules));
+	}
+
+	function ampcentral_server_list_available_module_versions($m) {
+		OpenLibrary('ampcentral-server.library');
+		global $gEnv;
+
+		$rep_id = $m -> GetParam(0);
+		$mod_id = $m -> GetParam(1);
+
+		$rep = new AmpCentralRepository($gEnv['root']['db'], $rep_id -> ScalarVal(), $gEnv['remote']['profile'].$gEnv['remote']['user']);
+
+		return new XmlRpcResp(xmlrpc_encode($rep -> AvailableModuleVersionsList($mod_id -> ScalarVal())));
+	}
+
+	function ampcentral_server_retrieve_module($m) {
+		OpenLibrary('ampcentral-server.library');
+		global $gEnv;
+
+		$rep_id = $m -> GetParam(0);
+		$mod_id = $m -> GetParam(1);
+		$mod_version = $m -> GetParam(2);
+		$profile_id = $m -> GetParam(3);
+
+		$rep = new AmpCentralRepository($gEnv['root']['db'], $rep_id -> ScalarVal(), $gEnv['remote']['profile'], $gEnv['remote']['user']);
+
+		return new XmlRpcResp(new XmlRpcVal($rep -> SendModule($mod_id -> ScalarVal(), $mod_version -> ScalarVal()), 'base64'));
+	}
+
+	function ampcentral_server_retrieve_ampcentral_client() {
+		OpenLibrary('ampcentral-server.library');
+		OpenLibrary('logger.library');
+
+		global $gEnv;
+
+		$mod_query = & $gEnv['root']['db'] -> Execute('SELECT id '.'FROM ampcentralmodules '.'WHERE modid='.$gEnv['root']['db'] -> Format_Text('ampcentral-client'));
+
+		//if ( $mod_query->NumRows() )
+		//{
+		$module = new AmpCentralModule($gEnv['root']['db'], $mod_query -> Fields('id'));
+		$result = $module -> Retrieve($version);
+
+		$log = new Logger($gEnv['root']['log']);
+		$log -> LogEvent('ampcentral-server', 'Sent AmpCentral Client to remote address '.$_SERVER['REMOTE_ADDR'], LOGGER_NOTICE);
+
+		//if ( $result ) $this->LogEvent( 'Sent module '.$module->mModule.' to user '.$this->mUser );
+
+		return new XmlRpcResp(new XmlRpcVal($module -> Retrieve(), 'base64'));
+	}
+
+}
+?>

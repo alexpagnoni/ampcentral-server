@@ -1,0 +1,15 @@
+<?xml version='1.0'?>
+<database>
+
+    <table  name="ampcentralmodules">
+        <field  name="id"   type="integer"  notnull="1"/>
+        <field  name="modid"    type="text" notnull="1"/>
+        <field  name="description"  type="text"/>
+        <field  name="lastversion"  type="text"/>
+        <field  name="category" type="text"/>
+        <key    field="id"  type="unique"/>
+    </table>
+    
+    <sequence   name="ampcentralmodules_id_seq"/>
+
+</database>

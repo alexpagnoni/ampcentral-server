@@ -1,0 +1,9 @@
+<?xml version='1.0'?>
+<database>
+
+    <table  name="ampcentralrepmodules">
+        <field  name="repositoryid"   type="integer"  notnull="1"/>
+        <field  name="moduleid"    type="integer" notnull="1"/>
+    </table>
+
+</database>

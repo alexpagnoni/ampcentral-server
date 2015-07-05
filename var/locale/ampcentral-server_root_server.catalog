@@ -1,0 +1,104 @@
+# Global
+
+ampcentral-server.title     = AmpCentral Server
+
+repository.toolbar          = Repositories
+newrepository.toolbar       = New
+modules.toolbar             = Modules
+newmodule.toolbar           = New
+refreshlog.toolbar          = Refresh
+eraselog.toolbar            = Erase log
+eraselog.confirm            = Do you really want to erase the current log?
+
+# Repositories list
+
+no_repositories.status      = There are no defined repositories.
+
+repositories.title          = Repositories
+
+repository_name.header      = Name
+repository_description.header   = Description
+repository_modules.button   = Modules
+repository_profiles.button   = Profiles
+edit_repository.button      = Edit
+remove_repository.button    = Remove
+repository_log.button       = Log
+
+# New repository
+
+newrepository.title         = New repository
+repository_name.label       = Name
+repository_description.label    = Description
+repository_logevents.label      = Log events
+new_repository.submit       = Create
+repository_created.status   = Repository created.
+repository_not_created.status   = ERROR: Repository not created.
+
+# Edit repository
+
+editrepository.title         = Edit repository
+edit_repository.submit       = Update
+repository_updated.status    = Repository updated.
+
+# Remove repository
+
+remove_repository.confirm   = Do you really want to remove this repository?
+repository_removed.status   = Repository removed.
+repository_not_removed.status   = ERROR: Repository not removed.
+
+# Repository modules
+
+repository_modules.title    = Repository modules
+unavailable_modules.label   = Not available modules
+available_modules.label     = Available modules
+add_modules.submit          = Add
+remove_modules.submit       = Remove
+repository_modules.submit   = Apply
+enable_modules.button       = Enable
+disable_modules.button      = Disable
+
+# Repository profiles
+
+repository_profiles.title    = Repository profiles
+unavailable_profiles.label   = Not available profiles
+available_profiles.label     = Available profiles
+add_profiles.submit          = Add
+remove_profiles.submit       = Remove
+repository_profiles.submit   = Apply
+enable_profiles.button       = Enable
+disable_profiles.button      = Disable
+
+# Modules
+
+modules.title               = Modules
+no_modules.status            = There are no modules.
+
+module_name.header          = Name
+module_lastversion.header   = Last version
+module_category.header      = Category
+remove_module.button        = Remove
+remove_module.confirm       = Do you really want to remove this module?
+module_versions.button      = Versions
+
+module_removed.status       = Module removed.
+module_not_removed.status   = ERROR: Module not removed.
+
+newmodule.title             = New module
+module_file.label           = Module
+addmodule.submit            = Add module
+
+module_added.status         = Module added.
+module_not_added.status     = ERROR: Module not added.
+
+moduleversions.title        = Versions
+version.header              = Version
+date.header                 = Date
+dependencies.header         = Dependencies
+remove_version.button       = Remove
+remove_version.confirm      = Do you really want to remote this module version?
+
+version_removed.status      = Module %s version %s removed.
+version_not_removed.status  = ERROR: Module $s version %s not removed.
+
+log_erased.status           = Log erased.
+log_not_erased.status       = ERROR: Log not erased.

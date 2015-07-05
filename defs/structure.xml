@@ -1,0 +1,100 @@
+<?xml version='1.0'?>
+<structure>
+
+    <rootpage
+        name="ampcentral-server"
+        file="ampcentral-server.php"
+        themeicon="nfs_unmount"
+        themeicontype="devices"
+        catalog="ampcentral-server_misc"
+        category="ampoliros"/>
+
+    <catalog
+        name="ampcentral-server_misc"
+        file="ampcentral-server_misc.catalog"/>
+
+    <catalog
+        name="ampcentral-server_root_server"
+        file="ampcentral-server_root_server.catalog"/>
+
+    <library
+        name="ampcentral-server"
+        file="ampcentral-server.library"/>
+
+    <roottable
+        name="ampcentralmodules"
+        file="ampcentralmodules.xsql"/>
+
+    <roottable
+        name="ampcentralmodversions"
+        file="ampcentralmodversions.xsql"/>
+
+    <roottable
+        name="ampcentralreps"
+        file="ampcentralreps.xsql"/>
+
+    <roottable
+        name="ampcentralrepaccess"  
+        file="ampcentralrepaccess.xsql"/>
+
+    <roottable
+        name="ampcentralrepmodules" 
+        file="ampcentralrepmodules.xsql"/>
+
+    <tempdir
+        name="ampcentral-server"
+        file="ampcentral-server"/>
+
+    <hookhandler
+        name="ampcentral-server"
+        file="ampcentral-server.hook"/>
+
+    <hook   
+        name="ampcentral-server.ampoliros.xmlrpcprofile.remove.profileremoved"
+        file="ampcentral-server.ampoliros.xmlrpcprofile.remove.profileremoved"
+        functionmodule="ampoliros"
+        function="xmlrpcprofile.remove"
+        event="profileremoved"
+        hookhandler="ampcentral-server.hook"
+        hookfunction="ampcentral_server_ampoliros_xmlrpcprofile_remove_profileremoved"/>
+
+    <xmlrpchandler
+        name="ampcentral-server"
+        file="ampcentral-server.xmlrpchandler"/>
+
+    <xmlrpcmethod
+        name="ampcentral-server.list_available_repositories"
+        file="ampcentral-server.list_available_repositories"
+        function="ampcentral_server_list_available_repositories"
+        handler="ampcentral-server"
+        catalog="ampcentral-server_misc"/>
+
+    <xmlrpcmethod
+        name="ampcentral-server.list_available_modules"
+        file="ampcentral-server.list_available_modules"
+        function="ampcentral_server_list_available_modules"
+        handler="ampcentral-server"
+        catalog="ampcentral-server_misc"/>
+    
+    <xmlrpcmethod
+        name="ampcentral-server.list_available_module_versions"
+        file="ampcentral-server.list_available_module_versions"
+        function="ampcentral_server_list_available_module_versions"
+        handler="ampcentral-server"
+        catalog="ampcentral-server_misc"/>
+
+    <xmlrpcmethod
+        name="ampcentral-server.retrieve_module"
+        file="ampcentral-server.retrieve_module"
+        function="ampcentral_server_retrieve_module"
+        handler="ampcentral-server"
+        catalog="ampcentral-server_misc"/>
+
+    <xmlrpcmethod
+        name="ampcentral-server.retrieve_ampcentral_client"
+        file="ampcentral-server.retrieve_ampcentral_client"
+        function="ampcentral_server_retrieve_ampcentral_client"
+        handler="ampcentral-server"
+        catalog="ampcentral-server_misc"/>
+    
+</structure>

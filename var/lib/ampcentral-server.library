@@ -1,0 +1,573 @@
+<?php
+/*
+ *   AmpCentral Server
+ *
+ *   Copyright (C) 2000-2004 Solarix
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+if (!defined('AMPCENTRAL-SERVER_LIBRARY')) {
+	define ('AMPCENTRAL-SERVER_LIBRARY', true);
+
+	OpenLibrary('logger.library');
+
+	class AmpCentralRepository {
+		var $mrAmpDb;
+		var $mId;
+		var $mName;
+		var $mDescription;
+		var $mProfileId;
+		var $mUser;
+		var $mLogEvents;
+		var $mLogFile;
+		var $mLogHandler;
+
+		function AmpCentralRepository(& $rampDb, $repId = 0, $profileId = '', $user = '') {
+			$this -> mrAmpDb = & $rampDb;
+
+			if ($repId) {
+				$rep_query = & $this -> mrAmpDb -> Execute('SELECT name,description,logevents '.'FROM ampcentralreps '.'WHERE id='.$repId);
+
+				if ($rep_query -> NumRows()) {
+					$this -> mId = $repId;
+					$this -> mName = $rep_query -> Fields('name');
+					$this -> mDescription = $rep_query -> Fields('description');
+					$this -> mProfileId = $profileId;
+					$this -> mUser = $user;
+					$this -> mLogEvents = $rep_query -> Fields('logevents') == $this -> mrAmpDb -> fmttrue ? true : false;
+					if ($this -> mLogEvents) {
+						$this -> mLogFile = MODULE_PATH.'ampcentral-server/repository_'.$this -> mId.'.log';
+						$this -> mLogHandler = new Logger($this -> mLogFile);
+					}
+				}
+			}
+		}
+
+		function Create($repName, $repDescription, $repLogEvents) {
+			$result = false;
+
+			$rep_id = $this -> mrAmpDb -> NextSeqValue('ampcentralreps_id_seq');
+
+			if ($this -> mrAmpDb -> Execute('INSERT INTO ampcentralreps '.'VALUES ('.$rep_id.','.$this -> mrAmpDb -> Format_Text($repName).','.$this -> mrAmpDb -> Format_Text($repDescription).','.$this -> mrAmpDb -> Format_Text($repLogEvents == true ? $this -> mrAmpDb -> fmttrue : $this -> mrAmpDb -> fmtfalse).')')) {
+				$this -> mId = $rep_id;
+				$this -> mName = $repName;
+				$this -> mDescription = $repDescription;
+				$this -> mLogEvents = $repLogEvents;
+				if ($this -> mLogEvents) {
+					$this -> mLogFile = MODULE_PATH.'ampcentral-server/repository_'.$this -> mId.'.log';
+					$this -> mLogHandler = new Logger($this -> mLogFile);
+				}
+
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function Remove() {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('DELETE FROM ampcentralreps '.'WHERE id='.$this -> mId)) {
+				$this -> mrAmpDb -> Execute('DELETE FROM ampcentralrepmodules '.'WHERE repositoryid='.$this -> mId);
+
+				$this -> mrAmpDb -> Execute('DELETE FROM ampcentralrepaccess '.'WHERE repositoryid='.$this -> mId);
+
+				if (file_exists($this -> mLogFile))
+					unlink($this -> mLogfile);
+				$this -> mId = 0;
+				$this -> mName = '';
+				$this -> mDescription = '';
+
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function LogEvent($event, $type = LOGGER_NOTICE) {
+			if ($this -> mLogEvents)
+				$this -> mLogHandler -> LogEvent($this -> mName, $event, $type);
+
+			return true;
+		}
+
+		function GetLogContent() {
+			$result = '';
+
+			if (file_exists($this -> mLogFile) and $fh = fopen($this -> mLogFile, 'r')) {
+				$result = fread($fh, filesize($this -> mLogFile));
+				fclose($fh);
+			}
+
+			return $result;
+		}
+
+		function EraseLog() {
+			$result = false;
+
+			if (file_exists($this -> mLogFile)) {
+				if (unlink($this -> mLogFile))
+					$result = true;
+			} else
+				$result = true;
+
+			return $result;
+		}
+
+		function SetName($newName) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('UPDATE ampcentralreps '.'SET name='.$this -> mrAmpDb -> Format_Text($newName).' '.'WHERE id='.$this -> mId)) {
+				$this -> mName = $newName;
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function SetDescription($newDescription) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('UPDATE ampcentralreps '.'SET description='.$this -> mrAmpDb -> Format_Text($newDescription).' '.'WHERE id='.$this -> mId)) {
+				$this -> mDescription = $newDescription;
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function SetLogEvents($logEvents) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('UPDATE ampcentralreps '.'SET logevents='.$this -> mrAmpDb -> Format_Text($logEvents ? $this -> mrAmpDb -> fmttrue : $this -> mrAmpDb -> fmtfalse).' '.'WHERE id='.$this -> mId)) {
+				$this -> mLogEvents = $logEvents;
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		// ----- Modules methods -----
+
+		function EnableModule($modId) {
+			$result = false;
+
+			$mod_check = & $this -> mrAmpDb -> Execute('SELECT moduleid '.'FROM ampcentralrepmodules '.'WHERE repositoryid='.$this -> mId.' '.'AND moduleid='.$modId);
+
+			if ($mod_check -> NumRows() == 0) {
+				if ($this -> mrAmpDb -> Execute('INSERT INTO ampcentralrepmodules '.'VALUES('.$this -> mId.','.$modId.')'))
+					$result = true;
+			} else
+				$result = true;
+
+			return $result;
+		}
+
+		function DisableModule($modId) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('DELETE FROM ampcentralrepmodules '.'WHERE repositoryid='.$this -> mId.' '.'AND moduleid='.$modId))
+				$result = true;
+
+			return $result;
+		}
+
+		function AvailableModulesList() {
+			$result = array();
+
+			if ($this -> mProfileId) {
+				$mod_query = & $this -> mrAmpDb -> Execute('SELECT ampcentralrepmodules.moduleid AS moduleid '.'FROM ampcentralrepmodules, ampcentralrepaccess '.'WHERE ampcentralrepmodules.repositoryid='.$this -> mId.' '.'AND ampcentralrepmodules.repositoryid=ampcentralrepaccess.repositoryid '.'AND ampcentralrepaccess.profileid='.$this -> mProfileId);
+			} else {
+				$mod_query = & $this -> mrAmpDb -> Execute('SELECT moduleid '.'FROM ampcentralrepmodules '.'WHERE repositoryid='.$this -> mId);
+			}
+
+			while (!$mod_query -> eof) {
+				$result[] = $mod_query -> Fields('moduleid');
+				$mod_query -> MoveNext();
+			}
+
+			return $result;
+		}
+
+		function AvailableModuleVersionsList($moduleId) {
+			$result = array();
+
+			$mod = new AmpCentralModule($this -> mrAmpDb, $moduleId);
+			$versions = $mod -> GetVersionsList(true);
+
+			while (list (, $version) = each($versions)) {
+				$version_query = & $this -> mrAmpDb -> Execute('SELECT * '.'FROM ampcentralmodversions '.'WHERE moduleid='.$moduleId.' '.'AND version='.$this -> mrAmpDb -> Format_Text($version));
+
+				$result[$version]['date'] = $version_query -> Fields('date');
+				$result[$version]['dependencies'] = $version_query -> Fields('dependencies');
+				$result[$version]['suggestions'] = $version_query -> Fields('suggestions');
+			}
+
+			return $result;
+		}
+
+		function CheckModule($moduleId) {
+			$result = false;
+
+			if ($this -> mProfileId) {
+				$mod_query = & $this -> mrAmpDb -> Execute('SELECT moduleid '.'FROM ampcentralrepaccess,ampcentralrepmodules '.'WHERE ampcentralrepaccess.profileid='.$this -> mProfileId.' '.'AND ampcentralrepaccess.repositoryid=ampcentralrepmodules.repositoryid '.'AND ampcentralrepmodules.moduleid='.$moduleId);
+			} else {
+				$mod_query = & $this -> mrAmpDb -> Execute('SELECT moduleid '.'FROM ampcentralrepmodules '.'WHERE repositoryid='.$this -> mId.' '.'AND moduleid='.$moduleId);
+			}
+
+			if ($mod_query -> NumRows())
+				$result = true;
+
+			return $result;
+		}
+
+		function SendModule($moduleId, $version = '') {
+			$result = '';
+
+			if ($this -> CheckModule($moduleId)) {
+				$module = new AmpCentralModule($this -> mrAmpDb, $moduleId);
+				$result = $module -> Retrieve($version);
+
+				if ($result)
+					$this -> LogEvent('Sent module '.$module -> mModule.' to user '.$this -> mUser.' ('.$_SERVER['REMOTE_ADDR'].')');
+			}
+
+			return $result;
+		}
+
+		// ----- Profiles methods -----
+
+		function EnableProfile($profileId) {
+			$result = false;
+
+			$profile_check = & $this -> mrAmpDb -> Execute('SELECT profileid '.'FROM ampcentralrepaccess '.'WHERE repositoryid='.$this -> mId.' '.'AND profileid='.$profileId);
+
+			if ($profile_check -> NumRows() == 0) {
+				if ($this -> mrAmpDb -> Execute('INSERT INTO ampcentralrepaccess '.'VALUES('.$this -> mId.','.$profileId.')'))
+					$result = true;
+			} else
+				$result = true;
+
+			return $result;
+		}
+
+		function DisableProfile($profileId) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('DELETE FROM ampcentralrepaccess '.'WHERE repositoryid='.$this -> mId.' '.'AND profileid='.$profileId))
+				$result = true;
+
+			return $result;
+		}
+
+		function AvailableProfilesList() {
+			$result = array();
+
+			$profile_query = & $this -> mrAmpDb -> Execute('SELECT profileid '.'FROM ampcentralrepaccess '.'WHERE repositoryid='.$this -> mId);
+
+			while (!$profile_query -> eof) {
+				$result[] = $profile_query -> Fields('profileid');
+				$profile_query -> MoveNext();
+			}
+
+			return $result;
+		}
+
+		function CheckProfile($profileId) {
+			$result = false;
+
+			$profile_query = & $this -> mrAmpDb -> Execute('SELECT profileid '.'FROM ampcentralrepaccess '.'WHERE repositoryid='.$this -> mId.' '.'AND profileid='.$profileId);
+
+			if ($profile_query -> NumRows())
+				$result = true;
+
+			return $result;
+		}
+
+	}
+
+	class AmpCentralModule {
+		var $mrAmpDb;
+		var $mId;
+		var $mModule;
+		var $mDescription;
+		var $mLastVersion;
+		var $mCategory;
+
+		function AmpCentralModule($rampDb, $moduleId = 0) {
+			$this -> mrAmpDb = & $rampDb;
+
+			if ($moduleId) {
+				$mod_query = & $this -> mrAmpDb -> Execute('SELECT modid,description,lastversion,category '.'FROM ampcentralmodules '.'WHERE id='.$moduleId);
+
+				if ($mod_query -> NumRows()) {
+					$this -> mId = $moduleId;
+					$this -> mModule = $mod_query -> Fields('modid');
+					$this -> mDescription = $mod_query -> Fields('description');
+					$this -> mLastVersion = $mod_query -> Fields('lastversion');
+					$this -> mCategory = $mod_query -> Fields('category');
+				}
+			}
+		}
+
+		function _Create($modName, $modDescription, $modCategory, $modLastVersion) {
+			$result = false;
+
+			$mod_id = $this -> mrAmpDb -> NextSeqValue('ampcentralmodules_id_seq');
+
+			if ($this -> mrAmpDb -> Execute('INSERT INTO ampcentralmodules '.'VALUES ('.$mod_id.','.$this -> mrAmpDb -> Format_Text($modName).','.$this -> mrAmpDb -> Format_Text($modDescription).','.$this -> mrAmpDb -> Format_Text($modLastVersion).','.$this -> mrAmpDb -> Format_Text($modCategory).')')) {
+				$this -> mId = $mod_id;
+				$this -> mModule = $modName;
+				$this -> mDescription = $modDescription;
+				$this -> mCategory = $modCategory;
+				$this -> mLastVersion = $modLastVersion;
+
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function Remove($checkVersions = true) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('DELETE FROM ampcentralmodules '.'WHERE id='.$this -> mId)) {
+				$this -> mrAmpDb -> Execute('DELETE FROM ampcentralrepmodules '.'WHERE moduleid='.$this -> mId);
+
+				echo "en";
+				if ($checkVersions) {
+					echo "tro";
+					$versions = $this -> GetVersionsList();
+
+					while (list (, $version) = each($versions)) {
+						echo "<br>versione:".$version."<br>";
+
+						$this -> RemoveVersion($version, false);
+					}
+				}
+
+				$this -> mId = 0;
+				$this -> mModule = '';
+				$this -> mDescription = '';
+
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function AddVersion($filePath) {
+			$result = false;
+
+			if (file_exists($filePath)) {
+				$orig_tmp_dir = $tmp_dir = TMP_PATH.'ampcentral-server/'.md5(uniqid(rand()));
+				mkdir($tmp_dir);
+
+				OpenLibrary('archives.library');
+				OpenLibrary('modulesbase.library');
+
+				$mod_archive = new Archive($filePath, AMPOLIROS_ARCHIVE_TGZ);
+				$mod_archive -> Extract($tmp_dir);
+
+				// Check if the files are into a directory instead of the root
+				//
+				if (!is_dir($tmp_dir.'/defs')) {
+					$dhandle = opendir($tmp_dir);
+					while (false != ($file = readdir($dhandle))) {
+						if ($file != '.' && $file != '..' && is_dir($tmp_dir.'/'.$file.'/defs')) {
+							$tmp_dir = $tmp_dir.'/'.$file;
+						}
+					}
+					closedir($dhandle);
+				}
+
+				// Check for definition and structure files
+				//
+				if (file_exists($tmp_dir.'/defs/'.STRUCTURE_FILE) and file_exists($tmp_dir.'/defs/'.GENERALDEF_FILE)) {
+					$gen_config = new ConfigFile($tmp_dir.'/defs/'.GENERALDEF_FILE);
+
+					$mod_name = $gen_config -> Value('MODULEIDNAME');
+					$mod_version = $gen_config -> Value('MODULEVERSION');
+					$mod_date = $gen_config -> Value('MODULEDATE');
+					$mod_description = $gen_config -> Value('MODULEDESCRIPTION');
+					$mod_dependencies = $gen_config -> Value('MODULEDEPENDENCIES');
+					$mod_suggestions = $gen_config -> Value('MODULESUGGESTIONS');
+					$mod_category = $gen_config -> Value('MODULE_CATEGORY');
+
+					if (!$this -> mId) {
+						$modcheck_query = & $this -> mrAmpDb -> Execute('SELECT * '.'FROM ampcentralmodules '.'WHERE modid='.$this -> mrAmpDb -> Format_Text($mod_name));
+
+						if ($modcheck_query -> NumRows()) {
+							$this -> mId = $modcheck_query -> Fields('id');
+							$this -> mModule = $modcheck_query -> Fields('modid');
+							$this -> mDescription = $modcheck_query -> Fields('description');
+							$this -> mCategory = $modcheck_query -> Fields('category');
+							$this -> mLastVersion = $modcheck_query -> Fields('lastversion');
+						} else
+							$this -> _Create($mod_name, $mod_description, $mod_category, $mod_version);
+					}
+
+					$version_check = & $this -> mrAmpDb -> Execute('SELECT version '.'FROM ampcentralmodversions '.'WHERE moduleid='.$this -> mId.' '.'AND version='.$this -> mrAmpDb -> Format_Text($mod_version));
+
+					if (!$version_check -> NumRows()) {
+						$this -> mrAmpDb -> Execute('INSERT INTO ampcentralmodversions '.'VALUES ('.$this -> mId.','.$this -> mrAmpDb -> Format_Text($mod_version).','.$this -> mrAmpDb -> Format_Text($mod_date).','.$this -> mrAmpDb -> Format_Text($mod_dependencies).','.$this -> mrAmpDb -> Format_Text($mod_suggestions).')');
+					} else {
+						$this -> mrAmpDb -> Execute('UPDATE ampcentralmodversions '.'SET date='.$this -> mrAmpDb -> Format_Text($mod_date).','.'dependencies='.$this -> mrAmpDb -> Format_Text($mod_dependencies).','.'suggestions='.$this -> mrAmpDb -> Format_Text($mod_suggestions).' '.'WHERE moduleid='.$this -> mId.' '.'AND version='.$this -> mrAmpDb -> Format_Text($mod_version));
+					}
+
+					$this -> UpdateLastVersion();
+
+					if ($this -> mLastVersion == $mod_version) {
+						$this -> SetDescription($mod_description);
+						$this -> SetCategory($mod_category);
+					}
+
+					@ copy($filePath, MODULE_PATH.'ampcentral-server/'.$mod_name.'-'.$mod_version.'.tgz');
+					$result = true;
+				}
+
+				// Clean up
+				//
+				RecRemoveDir($orig_tmp_dir);
+			}
+
+			return $result;
+		}
+
+		function RemoveVersion($version = '', $moduleCheck = true) {
+			$result = false;
+
+			if (!strlen($version))
+				$version = $this -> mLastVersion;
+
+			if ($this -> mrAmpDb -> Execute('DELETE FROM ampcentralmodversions '.'WHERE version='.$this -> mrAmpDb -> Format_Text($version).' '.'AND moduleid='.$this -> mId)) {
+				$this -> mLastVersion = '';
+				$this -> UpdateLastVersion();
+
+				@ unlink(MODULE_PATH.'ampcentral-server/'.$this -> mModule.'-'.$version.'.tgz');
+				$result = true;
+
+				if ($moduleCheck) {
+					$modcheck_query = & $this -> mrAmpDb -> Execute('SELECT version '.'FROM ampcentralmodversions '.'WHERE moduleid='.$this -> mId);
+
+					if ($modcheck_query -> NumRows() == 0) {
+						$this -> Remove(false);
+					}
+				}
+			}
+
+			return $result;
+		}
+
+		function GetVersionsList($descendant = false) {
+			$result = array();
+
+			if ($versions_query = $this -> mrAmpDb -> Execute('SELECT version '.'FROM ampcentralmodversions '.'WHERE moduleid='.$this -> mId.' '.'ORDER BY version'. ($descendant == true ? ' DESC' : ''))) {
+				while (!$versions_query -> eof) {
+					$result[] = $versions_query -> Fields('version');
+					$versions_query -> MoveNext();
+				}
+			}
+
+			return $result;
+		}
+
+		function GetVersionData($version = '') {
+			$result = array();
+
+			if (!$version)
+				$version = $this -> mLastVersion;
+
+			$vers_query = & $this -> mrAmpDb -> Execute('SELECT * '.'FROM ampcentralmodversions '.'WHERE moduleid='.$this -> mId.' '.'AND version='.$this -> mrAmpDb -> Format_Text($version));
+
+			if ($vers_query -> NumRows()) {
+				$result = $vers_query -> Fields();
+			}
+
+			return $result;
+		}
+
+		function Retrieve($version = '') {
+			$result = '';
+
+			if (!$version)
+				$version = $this -> mLastVersion;
+
+			$versioncheck_query = & $this -> mrAmpDb -> Execute('SELECT version '.'FROM ampcentralmodversions '.'WHERE moduleid='.$this -> mId.' '.'AND version='.$this -> mrAmpDb -> Format_Text($version));
+
+			if ($versioncheck_query -> NumRows()) {
+				$mod_file = MODULE_PATH.'ampcentral-server/'.$this -> mModule.'-'.$version.'.tgz';
+
+				if (file_exists($mod_file)) {
+					if ($fh = fopen($mod_file, 'rb')) {
+						$result = fread($fh, filesize($mod_file));
+						fclose($fh);
+					}
+				}
+			}
+
+			return $result;
+		}
+
+		function SetDescription($newDescription) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('UPDATE ampcentralmodules '.'SET description='.$this -> mrAmpDb -> Format_Text($newDescription).' '.'WHERE id='.$this -> mId)) {
+				$this -> mDescription = $newDescription;
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function SetCategory($newCategory) {
+			$result = false;
+
+			if ($this -> mrAmpDb -> Execute('UPDATE ampcentralmodules '.'SET category='.$this -> mrAmpDb -> Format_Text($newCategory).' '.'WHERE id='.$this -> mId)) {
+				$this -> mDescription = $newCategory;
+				$result = true;
+			}
+
+			return $result;
+		}
+
+		function UpdateLastVersion() {
+			$result = true;
+
+			$last_version = '0';
+			$versions = $this -> GetVersionsList();
+
+			OpenLibrary('misc.library');
+
+			while (list (, $version) = each($versions)) {
+				$compare = CompareVersionNumbers($version, $last_version);
+				if ($compare == AMPOLIROS_VERSIONCOMPARE_EQUAL or $compare == AMPOLIROS_VERSIONCOMPARE_MORE) {
+					$last_version = $version;
+				}
+			}
+
+			if ($last_version != $this -> mLastVersion) {
+				$this -> mrAmpDb -> Execute('UPDATE ampcentralmodules '.'SET lastversion='.$this -> mrAmpDb -> Format_Text($last_version).' '.'WHERE id='.$this -> mId);
+
+				$this -> mLastVersion = $last_version;
+			}
+
+			return $result;
+		}
+	}
+}
+?>

@@ -1,0 +1,6 @@
+ampcentral-server                   = AmpCentral Server
+ampcentral-server.list_available_repositories = List of available repositories.
+ampcentral-server.list_available_modules = List of available repository modules.
+ampcentral-server.retrieve_module = Sends a module archive.
+ampcentral-server.retrieve_ampcentral_client = Sends AmpCentral Client.
+ampcentral-server.list_available_module_versions = List of available module versions.
